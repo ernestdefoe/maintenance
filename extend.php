@@ -8,6 +8,7 @@
 
 use ErnestDefoe\Maintenance\Api\Controller;
 use ErnestDefoe\Maintenance\Console\RecountTagsCommand;
+use ErnestDefoe\Maintenance\Provider\FormatterHealthProvider;
 use Flarum\Extend;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
@@ -38,4 +39,16 @@ return [
         ->schedule(RecountTagsCommand::class, function (Event $event) {
             $event->dailyAt('03:20')->withoutOverlapping();
         }),
+
+    /*
+     * Keep post rendering alive across a cache clear.
+     *
+     * The formatter caches a serialized renderer that depends on a generated
+     * class file in storage/formatter. On a site where the default cache is
+     * Redis but the formatter has its own file store, a cache clear flushes
+     * one half and deletes the other, and every render 500s from then on.
+     * This makes the formatter rebuild itself instead.
+     */
+    (new Extend\ServiceProvider())
+        ->register(FormatterHealthProvider::class),
 ];

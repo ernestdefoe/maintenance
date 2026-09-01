@@ -48,13 +48,54 @@ class FormatterHealthProvider extends AbstractServiceProvider
             $cache = $borrow('cache');
             $cacheDir = $borrow('cacheDir');
 
-            // If core's shape ever stops matching, leave the original in place
-            // rather than substituting something half-built.
+            /*
+             * 🚨 The callbacks are the whole formatter. Every extension that
+             * touches formatting — markdown, bbcode, emoji, mentions, and every
+             * one of ours — contributes through addConfigurationCallback() and
+             * friends AFTER construction. A brand-new Formatter has all four
+             * arrays empty, so swapping the instance for one silently threw
+             * away the entire formatting pipeline: `**bold**` stayed literal,
+             * and stored `<IMG>` tags had no template left to render with, so
+             * every image on the site vanished from every post.
+             *
+             * Nothing surfaced it. The formatter did not throw; it rendered
+             * correctly for a configuration that no longer had anything in it.
+             */
+            $callbacks = [
+                'configurationCallbacks' => $borrow('configurationCallbacks'),
+                'parsingCallbacks' => $borrow('parsingCallbacks'),
+                'unparsingCallbacks' => $borrow('unparsingCallbacks'),
+                'renderingCallbacks' => $borrow('renderingCallbacks'),
+            ];
+
+            /*
+             * If core's shape ever stops matching, leave the original in place
+             * rather than substituting something half-built. Every one of these
+             * has to be readable — a missing callback array is exactly the
+             * "half-built" case this guard exists for, and it was the one thing
+             * the guard did not check.
+             */
             if ($cache === null || ! is_string($cacheDir)) {
                 return $formatter;
             }
 
-            return new SelfHealingFormatter($cache, $cacheDir, $borrow('config'));
+            foreach ($callbacks as $value) {
+                if (! is_array($value)) {
+                    return $formatter;
+                }
+            }
+
+            $healing = new SelfHealingFormatter($cache, $cacheDir, $borrow('config'));
+
+            // Carry the pipeline over to the replacement.
+            $target = new \ReflectionObject($healing);
+            foreach ($callbacks as $name => $value) {
+                if ($target->hasProperty($name)) {
+                    $target->getProperty($name)->setValue($healing, $value);
+                }
+            }
+
+            return $healing;
         });
     }
 }

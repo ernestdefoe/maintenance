@@ -30,10 +30,19 @@ class FormatterHealthProvider extends AbstractServiceProvider
                 if (! $reflection->hasProperty($name)) {
                     return null;
                 }
-                $property = $reflection->getProperty($name);
-                $property->setAccessible(true);
-
-                return $property->getValue($formatter);
+                /*
+                 * 🚨 No setAccessible(). It has had no effect since PHP 8.1 —
+                 * reflection reads a private property without it — and PHP 8.5
+                 * deprecated the method. Under the deprecation-to-exception
+                 * handling a Flarum install runs with, that call THREW while
+                 * the formatter was being resolved, and every caller that
+                 * guards its own render swallowed the throw and fell back to
+                 * escaped plain text. On ernestdefoe.online that meant every
+                 * Page Builder markdown field on the storefront rendered as
+                 * literal markdown — hashes, asterisks and unrendered image
+                 * syntax — with nothing in the log to say why.
+                 */
+                return $reflection->getProperty($name)->getValue($formatter);
             };
 
             $cache = $borrow('cache');

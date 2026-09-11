@@ -62,10 +62,19 @@ class RecountTagsCommand extends AbstractCommand
          * value on every tag that has NOT drifted, which is what makes it the
          * right rule rather than merely a plausible one.
          */
+        /*
+         * 🚨 statement() is raw SQL — nothing here goes through the query
+         * builder, so every table name has to carry the prefix itself. Without
+         * it the command died on "Table 'tags' doesn't exist" on any forum
+         * configured with a table prefix. getTablePrefix() returns '' when none
+         * is set, so the unprefixed case is unchanged.
+         */
+        $p = $this->db->getTablePrefix();
+
         $this->db->statement(
-            'UPDATE tags t SET t.discussion_count = ('
-            .' SELECT COUNT(*) FROM discussion_tag dt'
-            .' JOIN discussions d ON d.id = dt.discussion_id'
+            "UPDATE {$p}tags t SET t.discussion_count = ("
+            ." SELECT COUNT(*) FROM {$p}discussion_tag dt"
+            ." JOIN {$p}discussions d ON d.id = dt.discussion_id"
             .' WHERE dt.tag_id = t.id AND d.hidden_at IS NULL AND d.is_private = 0)'
         );
 
@@ -77,12 +86,15 @@ class RecountTagsCommand extends AbstractCommand
     /** @return array<int, object> tags whose stored count disagrees with the data */
     protected function drifted(): array
     {
+        // Raw SQL — prefix every table by hand; see recount() above.
+        $p = $this->db->getTablePrefix();
+
         return $this->db->select(
             'SELECT t.id, t.name, t.discussion_count AS stored,'
-            .' (SELECT COUNT(*) FROM discussion_tag dt'
-            .'   JOIN discussions d ON d.id = dt.discussion_id'
+            ." (SELECT COUNT(*) FROM {$p}discussion_tag dt"
+            ."   JOIN {$p}discussions d ON d.id = dt.discussion_id"
             .'   WHERE dt.tag_id = t.id AND d.hidden_at IS NULL AND d.is_private = 0) AS actual'
-            .' FROM tags t HAVING stored <> actual'
+            ." FROM {$p}tags t HAVING stored <> actual"
         );
     }
 }

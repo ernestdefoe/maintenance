@@ -40,6 +40,10 @@ composer update ernestdefoe/maintenance
 php flarum cache:clear
 ```
 
+## Discuss
+
+Questions, ideas and release notes: [Maintenance on discuss.flarum.org](https://discuss.flarum.org/d/39523-maintenance-for-flarum-2).
+
 ## Licence
 
 MIT.

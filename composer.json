@@ -11,6 +11,7 @@
         }
     ],
     "support": {
+        "forum": "https://discuss.flarum.org/d/39523-maintenance-for-flarum-2",
         "issues": "https://github.com/ernestdefoe/maintenance/issues",
         "source": "https://github.com/ernestdefoe/maintenance"
     },

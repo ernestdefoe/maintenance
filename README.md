@@ -40,9 +40,11 @@ composer update ernestdefoe/maintenance
 php flarum cache:clear
 ```
 
-## Discuss
+## Support
 
-Questions, ideas and release notes: [Maintenance on discuss.flarum.org](https://discuss.flarum.org/d/39523-maintenance-for-flarum-2).
+- **Support forum:** [Maintenance on ernestdefoe.online](https://ernestdefoe.online/d/68)
+- **Flarum community:** [Maintenance on discuss.flarum.org](https://discuss.flarum.org/d/39523-maintenance-for-flarum-2)
+- **Bug reports:** [GitHub issues](https://github.com/ernestdefoe/maintenance/issues)
 
 ## Licence
 

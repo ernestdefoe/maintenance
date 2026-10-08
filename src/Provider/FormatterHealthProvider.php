@@ -30,6 +30,7 @@ class FormatterHealthProvider extends AbstractServiceProvider
                 if (! $reflection->hasProperty($name)) {
                     return null;
                 }
+
                 /*
                  * 🚨 No setAccessible(). It has had no effect since PHP 8.1 —
                  * reflection reads a private property without it — and PHP 8.5

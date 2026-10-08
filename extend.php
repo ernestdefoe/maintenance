@@ -11,7 +11,6 @@ use ErnestDefoe\Maintenance\Console\RecountTagsCommand;
 use ErnestDefoe\Maintenance\Provider\FormatterHealthProvider;
 use Flarum\Extend;
 use Illuminate\Console\Scheduling\Event;
-use Illuminate\Console\Scheduling\Schedule;
 
 return [
     (new Extend\Frontend('admin'))

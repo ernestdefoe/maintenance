@@ -2,8 +2,9 @@ import app from 'flarum/admin/app';
 import { extend } from 'flarum/common/extend';
 import Button from 'flarum/common/components/Button';
 import LoadingModal from 'flarum/admin/components/LoadingModal';
+import type ItemList from 'flarum/common/utils/ItemList';
+import type Mithril from 'mithril';
 
-declare const m: any;
 const t = (k: string) => app.translator.trans('ernestdefoe-maintenance.admin.' + k);
 
 /**
@@ -16,8 +17,8 @@ function runChore(url: string, doneKey: string, reload: boolean) {
   app.modal.show(LoadingModal);
 
   app
-    .request({ method: 'POST', url: app.forum.attribute('apiUrl') + url })
-    .then((response: any) => {
+    .request<{ log?: string[] }>({ method: 'POST', url: app.forum.attribute('apiUrl') + url })
+    .then((response) => {
       app.modal.close();
       app.alerts.clear();
       app.alerts.show({ type: 'success' }, t(doneKey));
@@ -33,16 +34,8 @@ function runChore(url: string, doneKey: string, reload: boolean) {
 }
 
 app.initializers.add('ernestdefoe-maintenance', () => {
-  extend('flarum/admin/components/StatusWidget', 'toolsItems', function (items: any) {
-    items.add(
-      'maintenanceRunMigrations',
-      m(Button, { onclick: () => runChore('/maintenance/migrate', 'migrated', true) }, t('migrate_button')),
-      8
-    );
-    items.add(
-      'maintenancePublishAssets',
-      m(Button, { onclick: () => runChore('/maintenance/assets', 'published', false) }, t('assets_button')),
-      6
-    );
+  extend('flarum/admin/components/StatusWidget', 'toolsItems', function (items: ItemList<Mithril.Children>) {
+    items.add('maintenanceRunMigrations', m(Button, { onclick: () => runChore('/maintenance/migrate', 'migrated', true) }, t('migrate_button')), 8);
+    items.add('maintenancePublishAssets', m(Button, { onclick: () => runChore('/maintenance/assets', 'published', false) }, t('assets_button')), 6);
   });
 });

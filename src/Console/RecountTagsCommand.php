@@ -51,8 +51,17 @@ class RecountTagsCommand extends AbstractCommand
 
         foreach ($drifted as $row) {
             $this->info(sprintf('  %-28s %d → %d', $row->name, $row->stored, $row->actual));
+            $this->db->table('tags')->where('id', $row->id)->update(['discussion_count' => $row->actual]);
         }
 
+        $this->info(sprintf('Recounted %d tag(s).', count($drifted)));
+
+        return 0;
+    }
+
+    /** @return array<int, object{id: int, name: string, stored: int, actual: int}> tags whose stored count disagrees with the data */
+    protected function drifted(): array
+    {
         /*
          * 🚨 Private and hidden discussions do not count.
          *
@@ -61,40 +70,33 @@ class RecountTagsCommand extends AbstractCommand
          * hidden instead. This pair of conditions is what agrees with the stored
          * value on every tag that has NOT drifted, which is what makes it the
          * right rule rather than merely a plausible one.
+         *
+         * Built with the query builder, not raw SQL: it adds the table prefix,
+         * and the same query runs on MySQL, MariaDB, PostgreSQL and SQLite. The
+         * raw version used MySQL-only syntax (an alias in UPDATE ... SET, a
+         * HAVING without GROUP BY, is_private = 0 on a boolean) and failed on
+         * the other three.
          */
-        /*
-         * 🚨 statement() is raw SQL — nothing here goes through the query
-         * builder, so every table name has to carry the prefix itself. Without
-         * it the command died on "Table 'tags' doesn't exist" on any forum
-         * configured with a table prefix. getTablePrefix() returns '' when none
-         * is set, so the unprefixed case is unchanged.
-         */
-        $p = $this->db->getTablePrefix();
+        $actual = $this->db->table('discussion_tag')
+            ->join('discussions', 'discussions.id', '=', 'discussion_tag.discussion_id')
+            ->whereColumn('discussion_tag.tag_id', 'tags.id')
+            ->whereNull('discussions.hidden_at')
+            ->where('discussions.is_private', false)
+            ->selectRaw('count(*)');
 
-        $this->db->statement(
-            "UPDATE {$p}tags t SET t.discussion_count = ("
-            ." SELECT COUNT(*) FROM {$p}discussion_tag dt"
-            ." JOIN {$p}discussions d ON d.id = dt.discussion_id"
-            .' WHERE dt.tag_id = t.id AND d.hidden_at IS NULL AND d.is_private = 0)'
-        );
-
-        $this->info(sprintf('Recounted %d tag(s).', count($drifted)));
-
-        return 0;
-    }
-
-    /** @return array<int, object> tags whose stored count disagrees with the data */
-    protected function drifted(): array
-    {
-        // Raw SQL — prefix every table by hand; see recount() above.
-        $p = $this->db->getTablePrefix();
-
-        return $this->db->select(
-            'SELECT t.id, t.name, t.discussion_count AS stored,'
-            ." (SELECT COUNT(*) FROM {$p}discussion_tag dt"
-            ."   JOIN {$p}discussions d ON d.id = dt.discussion_id"
-            .'   WHERE dt.tag_id = t.id AND d.hidden_at IS NULL AND d.is_private = 0) AS actual'
-            ." FROM {$p}tags t HAVING stored <> actual"
-        );
+        return $this->db->table('tags')
+            ->select('id', 'name', 'discussion_count as stored')
+            ->selectSub($actual, 'actual')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (object $row) => (object) [
+                'id' => (int) $row->id,
+                'name' => (string) $row->name,
+                'stored' => (int) $row->stored,
+                'actual' => (int) $row->actual,
+            ])
+            ->filter(fn (object $row) => $row->stored !== $row->actual)
+            ->values()
+            ->all();
     }
 }

@@ -37,7 +37,13 @@ class PublishAssetsController implements RequestHandlerInterface
             $local = new Filesystem();
 
             $log[] = 'Publishing core assets…';
-            $pathPrefix = $this->paths->vendor.'/fortawesome/font-awesome/webfonts';
+            // Flarum 2.0.0 ships the slim flarum/font-awesome; the release
+            // candidates shipped the full fortawesome/font-awesome. The first
+            // one installed is the one core's own assets:publish reads.
+            $pathPrefix = $this->paths->vendor.'/flarum/font-awesome/webfonts';
+            if (! is_dir($pathPrefix)) {
+                $pathPrefix = $this->paths->vendor.'/fortawesome/font-awesome/webfonts';
+            }
             if (is_dir($pathPrefix)) {
                 foreach ($local->allFiles($pathPrefix) as $fullPath) {
                     $relPath = substr($fullPath, strlen($pathPrefix));

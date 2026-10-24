@@ -11,6 +11,7 @@ use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * Publishes core + extension assets from the admin UI — the in-process
@@ -23,6 +24,7 @@ class PublishAssetsController implements RequestHandlerInterface
     public function __construct(
         protected Container $container,
         protected Paths $paths,
+        protected LoggerInterface $logger,
     ) {
     }
 
@@ -73,6 +75,12 @@ class PublishAssetsController implements RequestHandlerInterface
                 }
             }
         } catch (\Throwable $e) {
+            // The admin is told to check the Flarum log — this is that entry.
+            $this->logger->error('[ernestdefoe/maintenance] Publishing assets failed: '.$e->getMessage(), [
+                'exception' => $e,
+                'output' => $log,
+            ]);
+
             return new JsonResponse(['ok' => false, 'error' => $e->getMessage(), 'log' => $log], 500);
         }
 

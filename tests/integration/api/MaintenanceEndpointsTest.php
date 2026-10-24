@@ -2,11 +2,14 @@
 
 namespace ErnestDefoe\Maintenance\Tests\integration\api;
 
+use Flarum\Database\Migrator;
 use Flarum\Testing\integration\RetrievesAuthorizedUsers;
 use Flarum\Testing\integration\TestCase;
 use Flarum\User\User;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\AbstractLogger;
+use Psr\Log\LoggerInterface;
 
 class MaintenanceEndpointsTest extends TestCase
 {
@@ -83,5 +86,33 @@ class MaintenanceEndpointsTest extends TestCase
         $this->assertTrue($body['ok']);
         $this->assertContains('Publishing core assets…', $body['log']);
         $this->assertTrue($disk->exists('fonts/fa-solid-900.woff2'), 'Font Awesome webfonts are published');
+    }
+
+    #[Test]
+    public function a_failed_migration_is_written_to_the_flarum_log()
+    {
+        $container = $this->app()->getContainer();
+
+        $logger = new class extends AbstractLogger {
+            public array $records = [];
+
+            public function log($level, \Stringable|string $message, array $context = []): void
+            {
+                $this->records[] = compact('level', 'message', 'context');
+            }
+        };
+        $container->instance(LoggerInterface::class, $logger);
+        $container->bind(Migrator::class, fn () => throw new \RuntimeException('Table already exists'));
+
+        [$status, $body] = $this->post('/api/maintenance/migrate', 1);
+
+        $this->assertSame(500, $status, json_encode($body));
+        $this->assertFalse($body['ok']);
+
+        // The admin's alert says "check the Flarum log" — exactly one entry has to be there.
+        $errors = array_values(array_filter($logger->records, fn ($r) => $r['level'] === 'error'));
+        $this->assertCount(1, $errors);
+        $this->assertStringContainsString('Running migrations failed: Table already exists', $errors[0]['message']);
+        $this->assertInstanceOf(\RuntimeException::class, $errors[0]['context']['exception']);
     }
 }

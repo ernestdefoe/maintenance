@@ -15,6 +15,7 @@ use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 /**
@@ -29,6 +30,7 @@ class RunMigrationsController implements RequestHandlerInterface
     public function __construct(
         protected Container $container,
         protected Paths $paths,
+        protected LoggerInterface $logger,
     ) {
     }
 
@@ -60,11 +62,16 @@ class RunMigrationsController implements RequestHandlerInterface
 
             $this->container->make(SettingsRepositoryInterface::class)->set('version', Application::VERSION);
         } catch (\Throwable $e) {
-            return new JsonResponse([
-                'ok' => false,
-                'error' => $e->getMessage(),
-                'log' => $this->lines($output),
-            ], 500);
+            // fetch() empties the buffer, so read the lines once for both.
+            $lines = $this->lines($output);
+
+            // The admin is told to check the Flarum log — this is that entry.
+            $this->logger->error('[ernestdefoe/maintenance] Running migrations failed: '.$e->getMessage(), [
+                'exception' => $e,
+                'output' => $lines,
+            ]);
+
+            return new JsonResponse(['ok' => false, 'error' => $e->getMessage(), 'log' => $lines], 500);
         }
 
         return new JsonResponse(['ok' => true, 'log' => $this->lines($output)]);

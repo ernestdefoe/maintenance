@@ -7,6 +7,8 @@
 namespace ErnestDefoe\Maintenance\Formatter;
 
 use Flarum\Formatter\Formatter;
+use Illuminate\Container\Container;
+use Psr\Log\LoggerInterface;
 use s9e\TextFormatter\Renderer;
 
 /**
@@ -58,6 +60,13 @@ class SelfHealingFormatter extends Formatter
             // recompile it. finalize() writes the cache entry AND the generated
             // class file, so both halves are consistent again afterwards.
             $this->flush();
+
+            // Recovered, but say so: a heal on every request means something
+            // keeps deleting storage/formatter behind the cache's back.
+            Container::getInstance()->make(LoggerInterface::class)->warning(
+                '[ernestdefoe/maintenance] Stale formatter cache rebuilt: its generated renderer class was missing.',
+                ['exception' => $e]
+            );
 
             return parent::getRenderer();
         }

@@ -26,10 +26,12 @@ function runChore(url: string, doneKey: string, reload: boolean) {
       if (log.length) console.info('[maintenance] ' + url + '\n' + log.join('\n'));
       if (reload) window.location.reload();
     })
-    .catch(() => {
+    .catch((e: { response?: { error?: unknown } }) => {
       app.modal.close();
       app.alerts.clear();
-      app.alerts.show({ type: 'error' }, t('failed'));
+      // Show the server's own reason (the controllers return it as `error`) beside the generic message.
+      const reason = e && e.response && typeof e.response.error === 'string' ? e.response.error : '';
+      app.alerts.show({ type: 'error' }, reason ? [t('failed'), ' ', reason] : t('failed'));
     });
 }
 

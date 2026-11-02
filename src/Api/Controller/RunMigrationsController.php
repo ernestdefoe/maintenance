@@ -38,9 +38,20 @@ class RunMigrationsController implements RequestHandlerInterface
     {
         RequestUtil::getActor($request)->assertAdmin();
 
+        // A forum with many extensions can take longer than max_execution_time,
+        // and PHP killing the request between two migrations leaves the schema
+        // half-migrated. Let the run finish, even if the admin closes the tab.
+        @set_time_limit(0);
+        ignore_user_abort(true);
+
         $output = new BufferedOutput();
 
         try {
+            // Same binding, same way, as core's MigrateCommand::upgrade() and
+            // ExtensionManager::migrate() (which re-binds it on every extension
+            // enable): migrations resolve Builder from the container, and the
+            // connection's own schema builder is the right one on MySQL,
+            // PostgreSQL and SQLite. The Migrator takes no Builder to pass in.
             $this->container->bind(Builder::class, function ($container) {
                 return $container->make(ConnectionInterface::class)->getSchemaBuilder();
             });
